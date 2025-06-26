@@ -6,27 +6,35 @@
 #################################################################################
 
 #funcion para evaluar modelos
-evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25") {
-  # Hacer predicciones
+#funcion para evaluar modelos
+evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25",tipoModelo,y_test) {
   predicciones <- predict(modelo, newdata = datos_test)
   
-  # Extraer los valores reales de la variable objetivo
-  valores_reales <- datos_test[[variable_real]]
   
-  # Calcular métricas
-  r2 <- cor(predicciones, valores_reales)^2
-  pearson <- cor(valores_reales, predicciones, method = "pearson")
-  rmse <- sqrt(mean((predicciones - valores_reales)^2))
-  bias <- mean(predicciones - valores_reales)
+  if(tipoModelo=="XGB"){
+    valores_reales <- y_test
+  }
+  else{
+    valores_reales <- datos_test[[variable_real]]
+  }
+  # Extraer los valores reales de la variable objetivo
+  
+  df <- data.frame(predicciones=predicciones, valores_reales=valores_reales)
+  df <- df[df$predicciones>0,]
+  # Calcular m?tricas
+  r2 <- cor(df$predicciones, df$valores_reales)^2
+  pearson <- cor(df$valores_reales, df$predicciones, method = "pearson")
+  rmse <- sqrt(mean((df$predicciones - df$valores_reales)^2))
+  bias <- mean(df$predicciones - df$valores_reales)
   
   # Resultados
   resultados <- data.frame(
     R2 = round(r2, 5),
-    Pearson = round(pearson, 2),
-    RMSE = round(rmse, 2),
-    Bias = round(bias, 2),
-    Min_Pred = round(min(predicciones), 2),
-    Max_Pred = round(max(predicciones), 2)
+    Pearson = round(pearson, 3),
+    RMSE = round(rmse, 3),
+    Bias = round(bias, 3),
+    Min_Pred = round(min(df$predicciones), 3),
+    Max_Pred = round(max(df$predicciones), 3)
   )
   
   return(resultados)
@@ -36,7 +44,7 @@ evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25") {
 ##############################################################################
 
 ################# SVR Temporal
-estacion <- "SP"
+estacion <- "BA"
 modelo <- "1"
 #Data modelo 1
 test_data <- read.csv(paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/Modelo_",modelo,"/M",modelo,"_test_",estacion,".csv",sep=""))
@@ -76,9 +84,9 @@ train_control_temporal <- trainControl(
 # 5. Entrenar el modelo SVR con validación cruzada por año
 set.seed(123)
 modelo_cv_svr_temporal <- train(
-  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
-    SO2SMASS_dia + SO4SMASS_dia + SSSMASS_dia + blh_mean + sp_mean +
-    d2m_mean + v10_mean + u10_mean + tp_mean + dayWeek,
+  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + #+t2m_mean 
+    SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean +
+    d2m_mean +v10_mean + u10_mean + tp_mean +DEM+   dayWeek,
   data = train_data,
   method = "svmRadial",
   trControl = train_control_temporal,
@@ -87,10 +95,15 @@ modelo_cv_svr_temporal <- train(
 )
 
 #Guardar
+setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
 getwd()
-save(modelo_cv_svr_temporal, file=paste("01-SVR-CV-Temp_M",modelo,"-200525-",estacion,".RData",sep=""))
 
+save(modelo_cv_svr_temporal, file=paste("01-SVR-CV-Temp_M",modelo,"-180625-",estacion,".RData",sep=""))
+# estadisticas
 
+resultados_svr_cv_Temporal <- evaluar_modelo(modelo=modelo_cv_svr_temporal, datos_test=test_data, variable_real = "PM25",tipoModelo="SVR",y_test=NA)
+
+print(resultados_svr_cv_Temporal)
 ### metricas por año
 df_metricas<- data.frame(modelo_cv_svr_temporal[["resample"]])
 
@@ -113,10 +126,6 @@ df_metricas$year <- recode(df_metricas$Resample,
                            .default = df_metricas$Resample
 )
 
-
-# Crear el gráfico
-library(ggplot2)
-library(dplyr)
 
 df_metricas$year <- as.numeric(as.character(df_metricas$year))
 # Crear el gráfico
@@ -147,7 +156,7 @@ SVR_temporal<-ggplot(df_metricas, aes(x = year)) +
   )
 
 
-
+SVR_temporal
 
 
 ##############################################################################
@@ -158,7 +167,7 @@ SVR_temporal<-ggplot(df_metricas, aes(x = year)) +
 library(caret)
 library(ranger)
 
-estacion <- "SP"
+estacion <- "BA"
 modelo <- "1"
 
 # Leer datos
@@ -203,8 +212,9 @@ train_control_temporal <- trainControl(
 # Modelo Extra Trees con CV temporal
 modelo_et_temporal <- train(
   PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
-    SO2SMASS_dia + SO4SMASS_dia + SSSMASS_dia + blh_mean + sp_mean +
-    d2m_mean + v10_mean + u10_mean + tp_mean + dayWeek,
+    SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean + #t2m_mean
+      DEM+
+    d2m_mean   +v10_mean + u10_mean + tp_mean + dayWeek,
   data = train_data,
   method = "ranger",
   trControl = train_control_temporal,
@@ -219,10 +229,12 @@ modelo_et_temporal <- train(
 
 #Guardar
 getwd()
-save(modelo_et_temporal, file=paste("01-ET-CV-Temp_M",modelo,"-200525-",estacion,".RData",sep=""))
+save(modelo_et_temporal, file=paste("01-ET-CV-Temp_M",modelo,"-180625-",estacion,".RData",sep=""))
 
 # Metricas globales
-resultados_ET_cv_Temporal <- evaluar_modelo(modelo_et_temporal, test_data)
+#resultados_ET_cv_Temporal <- evaluar_modelo(modelo_et_temporal, test_data)
+resultados_ET_cv_Temporal <- evaluar_modelo(modelo=modelo_et_temporal, datos_test=test_data, variable_real = "PM25",tipoModelo="ET",y_test=NA)
+
 print(resultados_ET_cv_Temporal)
 
 
@@ -283,7 +295,7 @@ ET_temporal
 ##############################################################################
 
 ################# RF  Temporal
-estacion <- "SP"
+estacion <- "CH"
 modelo <- "1"
 #Data modelo 1
 test_data <- read.csv(paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/Modelo_",modelo,"/M",modelo,"_test_",estacion,".csv",sep=""))
@@ -322,9 +334,10 @@ train_control_temporal <- trainControl(
 
 # Entrenar modelo con CV temporal
 rf_temporal_model <- train(
-  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
-    SO2SMASS_dia + SO4SMASS_dia + SSSMASS_dia + blh_mean + sp_mean +
-    d2m_mean + v10_mean + u10_mean + tp_mean + dayWeek,
+  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + t2m_mean +
+    DEM+
+    SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + #sp_mean +
+    d2m_mean   +v10_mean + u10_mean + tp_mean + dayWeek,
   data = train_data,
   method = "rf",
   trControl = train_control_temporal,
@@ -335,13 +348,18 @@ rf_temporal_model <- train(
 
 
 #Guardar
+#Guardar
+setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
 getwd()
-save(rf_temporal_model, file=paste("01-RF-CV-Temp_M",modelo,"-200525-",estacion,".RData",sep=""))
+save(rf_temporal_model, file=paste("01-RF-CV-Temp_M",modelo,"-180625-",estacion,".RData",sep=""))
+load(file=paste("01-RF-CV-Temp_M",modelo,"-180625-",estacion,".RData",sep=""))
 
 # Metricas globales
-resultados_RF_cv_Temporal <- evaluar_modelo(modelo_RF_temporal, test_data)
-print(resultados_RF_cv_Temporal)
+resultados_RF_cv_Temporal <- evaluar_modelo(rf_temporal_model, test_data)
+resultados_RF_cv_Temporal <- evaluar_modelo(modelo=rf_temporal_model, datos_test=test_data, variable_real = "PM25",tipoModelo="SVR",y_test=NA)
 
+print(resultados_RF_cv_Temporal)
+modelo_RF_temporal<-rf_temporal_model
 
 ### metricas por año
 df_metricas<- data.frame(modelo_RF_temporal[["resample"]])
@@ -380,16 +398,16 @@ ET_temporal<-ggplot(df_metricas, aes(x = year)) +
   #scale_x_continuous(breaks = 2015:2023) + 
   scale_color_manual(values = c("R²" = "#2c7fb8",  "RMSE" = "#cb181d")) +
   labs(#title = "Evaluación del modelo",
-    x = "RF-Model", color = "") +
+    x = "RF Temporal", color = "") +
   theme_classic()+
   theme(
-    axis.title.x = element_text(size = 16),
-    axis.title.y = element_text(size = 16),
-    axis.title.y.right = element_text(size = 16),  # Para RMSE
-    axis.text.x = element_text(size = 14),
-    axis.text.y = element_text(size = 14),
-    axis.text.y.right = element_text(size = 14),  # Ticks del eje derecho
-    legend.text = element_text(size = 14),
+    axis.title.x = element_text(size = 13),
+    axis.title.y = element_text(size = 13),
+    axis.title.y.right = element_text(size = 13),  # Para RMSE
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    axis.text.y.right = element_text(size = 10),  # Ticks del eje derecho
+    legend.text = element_text(size = 10),
     legend.position = "none"  # opcional: ubica la leyenda arriba
   )
 ET_temporal
@@ -400,7 +418,7 @@ ET_temporal
 ##############################################################################
 
 ################# XGB Temporal
-estacion <- "SP"
+estacion <- "CH"
 modelo <- "1"
 #Data modelo 1
 test_data <- read.csv(paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/Modelo_",modelo,"/M",modelo,"_test_",estacion,".csv",sep=""))
@@ -416,8 +434,8 @@ train_data$year <- as.numeric(format(as.Date(train_data$date), "%Y"))
 vars <- c("AOD_055",
           "ndvi", "BCSMASS_dia","DUSMASS_dia", #"DUSMASS25_dia"
           "SO2SMASS_dia", "SO4SMASS_dia", "SSSMASS_dia", "blh_mean", 
-          "sp_mean", "d2m_mean", "v10_mean",
-          "u10_mean", "tp_mean",
+          "sp_mean", "d2m_mean","v10_mean",# "t2m_mean", 
+          "u10_mean",  "tp_mean", #"DEM",
           "dayWeek")
 target <- "PM25"
 
@@ -518,22 +536,28 @@ modelo_xgb_final <- xgboost(
   colsample_bytree = 0.8,
   verbose = 0
 )
+setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
+getwd()
 
 getwd()
-save(modelo_xgb_final, file = paste0("01-XGB-CV-Temp_M", modelo, "-110425-", estacion, ".RData"))
+save(modelo_xgb_final, file = paste0("01-XGB-CV-Temp_M", modelo, "-180625-", estacion, ".RData"))
+load(paste("01-ET-CV-Esp_M",modelo,"-180625-",estacion,".RData",sep=""))
 
 
 # Crear el dataframe
 resultados <- data.frame(
   anio = 2015:2023,
-  R2 = c(0.52,0.63,0.61,0.60,0.52,0.57,0.66,0.65,0.49),
-  RMSE = c(7.88,6.02,6.33,7.91,7.03,6.61,7.08,6.04,7.01)
+  R2 = c(0.45,0.51,0.49,0.49,0.47,0.64,0.54,0.55,0.47),
+  RMSE = c(10.27,11.44,6.98,5.50,5.59,6.57,4.66,4.40,4.44)
 )
 
 # Pasar a formato largo para ggplot
-resultados_largo <- resultados %>%
+resultados_largo <- df %>%#resultados %>%
   pivot_longer(cols = c(R2, RMSE), names_to = "Metrica", values_to = "Valor")
 
+resultados_largo <- resultados %>%
+  pivot_longer(cols = c(R2, RMSE), names_to = "Metrica", values_to = "Valor")
+resultados$anio <- df$year
 
 ggplot(resultados, aes(x = anio, y = R2)) +
   geom_line(stat = "identity", color = "#0570b0", fill = "#74a9cf") +
@@ -552,7 +576,7 @@ resultados$rmse_escalado <- (resultados$RMSE - min_rmse) / (max_rmse - min_rmse)
 #XGB
 # rmse_all <- (6.41 - min_rmse) / (max_rmse - min_rmse)
 #RF
-rmse_all <- (13 - min_rmse) / (max_rmse - min_rmse)
+rmse_all <- (7.040815 - min_rmse) / (max_rmse - min_rmse)
 # Crear el gráfico
 xgb_temporal<-ggplot(resultados, aes(x = anio)) +
   geom_line(aes(y = R2, color = "R²"), size = 1.2) +
@@ -580,6 +604,9 @@ xgb_temporal<-ggplot(resultados, aes(x = anio)) +
     legend.text = element_text(size = 14),
     legend.position = "none"  # opcional: ubica la leyenda arriba
   )
+
+
+xgb_temporal
 # theme_minimal(base_size = 16)
 # 
 # 

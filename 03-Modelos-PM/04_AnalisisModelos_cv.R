@@ -17,12 +17,13 @@ evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25",tipoModelo
   }
   # Extraer los valores reales de la variable objetivo
   
-  
-  # Calcular métricas
-  r2 <- cor(predicciones, valores_reales)^2
-  pearson <- cor(valores_reales, predicciones, method = "pearson")
-  rmse <- sqrt(mean((predicciones - valores_reales)^2))
-  bias <- mean(predicciones - valores_reales)
+  df <- data.frame(predicciones=predicciones, valores_reales=valores_reales)
+  df <- df[df$predicciones>0,]
+  # Calcular m?tricas
+  r2 <- cor(df$predicciones, df$valores_reales)^2
+  pearson <- cor(df$valores_reales, df$predicciones, method = "pearson")
+  rmse <- sqrt(mean((df$predicciones - df$valores_reales)^2))
+  bias <- mean(df$predicciones - df$valores_reales)
   
   # Resultados
   resultados <- data.frame(
@@ -30,8 +31,8 @@ evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25",tipoModelo
     Pearson = round(pearson, 3),
     RMSE = round(rmse, 3),
     Bias = round(bias, 3),
-    Min_Pred = round(min(predicciones), 3),
-    Max_Pred = round(max(predicciones), 3)
+    Min_Pred = round(min(df$predicciones), 3),
+    Max_Pred = round(max(df$predicciones), 3)
   )
   
   return(resultados)
@@ -41,7 +42,7 @@ evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25",tipoModelo
 ##############################################################################
 ##############################################################################
 ### ----- SVR   -----
-estacion <-"MD"
+estacion <-"MX"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/",sep="")
@@ -55,10 +56,11 @@ ctrl <- trainControl(method = "cv", number = 10,
                      verboseIter = TRUE)
 
 # 2. Entrenamiento del modelo SVR con validación cruzada en train_data
-set.seed(123)
-modelo_cv_svr <- train(PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
+set.seed(123)#AOD_055+
+modelo_cv_svr <- train(PM25 ~  ndvi + BCSMASS_dia + DUSMASS_dia + #
                          SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean +
-                         d2m_mean  +t2m_mean +v10_mean + u10_mean + tp_mean + DEM+ dayWeek,
+                         d2m_mean  +t2m_mean +
+                         v10_mean + u10_mean + tp_mean + DEM+ dayWeek,
                        data = train_data,
                        method = "svmRadial",
                        trControl = ctrl,
@@ -71,13 +73,13 @@ print(resultados_SVR_cv)
 
 setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
 getwd()
-save(modelo_cv_svr, file=paste("01-SVR-CV-M",modelo,"-260525-",estacion,".RData",sep=""))
+save(modelo_cv_svr, file=paste("01-SVR-CV-M",modelo,"-210625-sAOD",estacion,".RData",sep=""))
 
 ##############################################################################
 ##############################################################################
 ##############################################################################
 ### ----- ET   -----
-estacion <-"MD"
+estacion <-"MX"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/",sep="")
@@ -87,7 +89,7 @@ test_data <- read.csv(paste(dir,"Modelo_",modelo,"/M",modelo,"_test_",estacion,"
 
 # Entrenamiento con validación cruzada de 10 pliegues
 modelo_ranger <- train(
-  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
+  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + # + 
     SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean +
     d2m_mean  +t2m_mean +v10_mean + u10_mean + tp_mean + DEM+ dayWeek,
   data = train_data,
@@ -111,14 +113,14 @@ print(resultados_ET_cv)
 
 setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
 getwd()
-save(modelo_ET_cv, file=paste("01-ET-CV-M",modelo,"-260525-",estacion,".RData",sep=""))
+save(modelo_ET_cv, file=paste("01-ET-CV-M",modelo,"-290525",estacion,".RData",sep=""))
 
 
 ##############################################################################
 ##############################################################################
 ##############################################################################
 ### ----- RF   -----
-estacion <-"MD"
+estacion <-"MX"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/",sep="")
@@ -133,13 +135,17 @@ train_control <- trainControl(
   allowParallel = TRUE    # Permitir procesamiento paralelo
 )
 
-
-modelo_RF_cv <- train(PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
-                        SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean +
-                        d2m_mean  +t2m_mean +v10_mean + u10_mean + tp_mean + DEM+ dayWeek,
-                     data = train_data, method = "rf",
-                     trControl = train_control,importance = TRUE)
-
+start_time <- Sys.time()
+modelo_RF_cv <- train(  PM25 ~  AOD_055 +ndvi + BCSMASS_dia +
+                          DUSMASS_dia + SO4SMASS_dia + v10_mean +
+                          SSSMASS_dia + blh_mean + sp_mean + 
+                          SO2SMASS_dia + d2m_mean +  #u10_mean + 
+                          tp_mean + DEM+#dayWeek+ 
+                          t2m_mean, # 
+                        trControl = train_control,importance = TRUE)
+ # tu código de entrenamiento
+end_time <- Sys.time()
+print(end_time - start_time)
 resultados_RF_cv <- evaluar_modelo(modelo=modelo_RF_cv, datos_test=test_data, variable_real = "PM25",tipoModelo="RF",y_test=NA)
 
 print(resultados_RF_cv)
@@ -147,7 +153,7 @@ print(resultados_RF_cv)
 
 setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
 getwd()
-save(modelo_RF_cv, file=paste("01-RF-CV-",modelo,"-260525-",estacion,".RData",sep=""))
+save(modelo_RF_cv, file=paste("01-RF-CV-M",modelo,"-290525_",estacion,".RData",sep=""))
 
 
 ##############################################################################
@@ -155,7 +161,7 @@ save(modelo_RF_cv, file=paste("01-RF-CV-",modelo,"-260525-",estacion,".RData",se
 ##############################################################################
 ### ----- XGB   -----
 
-estacion <-"SP"
+estacion <-"BA"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/",sep="")
@@ -167,7 +173,7 @@ test_data <- read.csv(paste(dir,"Modelo_",modelo,"/M",modelo,"_test_",estacion,"
 X <- train_data[ , c( "AOD_055",
                       "ndvi", "BCSMASS_dia","DUSMASS_dia", #"DUSMASS25_dia"
                       "SO2SMASS_dia", "SO4SMASS_dia", "SSSMASS_dia", "blh_mean", 
-                      "sp_mean", "d2m_mean", "t2m_mean","v10_mean",
+                      "sp_mean","d2m_mean", "v10_mean",#"t2m_mean",
                       "u10_mean", "tp_mean","DEM",
                       "dayWeek")]#
 
@@ -177,9 +183,10 @@ y <- train_data$PM25
 X_test <- test_data[ ,c( "AOD_055",
                          "ndvi", "BCSMASS_dia","DUSMASS_dia", #"DUSMASS25_dia"
                          "SO2SMASS_dia", "SO4SMASS_dia", "SSSMASS_dia", "blh_mean", 
-                         "sp_mean", "d2m_mean", "t2m_mean","v10_mean",
+                         "sp_mean","d2m_mean", "v10_mean",#"t2m_mean",
                          "u10_mean", "tp_mean","DEM",
                          "dayWeek")]#
+
 y_test<- test_data$PM25
 # Convertir a matrices xgboost
 dtrain <- xgb.DMatrix(data = as.matrix(X), label = y)
@@ -229,5 +236,5 @@ print(resultados_XGB)
 
 setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
 getwd()
-save(xgb_cv_model, file=paste("01-XGB-CV-",modelo,"-260525-",estacion,".RData",sep=""))
+save(xgb_cv_model, file=paste("01-XGB-CV-M",modelo,"-190625_",estacion,".RData",sep=""))
 

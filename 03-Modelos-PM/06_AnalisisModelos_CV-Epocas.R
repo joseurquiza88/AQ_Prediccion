@@ -42,7 +42,7 @@ evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25",tipoModelo
 ##############################################################################
 ##############################################################################
 ### ----- SVR   -----
-estacion <-"SP"
+estacion <-"MD"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/",sep="")
@@ -78,7 +78,7 @@ resultados_svr_por_estacion <- list()
 estaciones <- c("Primavera", "Verano", "Otoño", "Invierno")
 
 for (s in estaciones) {
-  cat("\n--- Entrenando SVR para:", s, "---\n")
+  cat("/n--- Entrenando SVR para:", s, "---/n")
   
   # Filtrar datos por estación
   train_s <- subset(train_data, season == s)
@@ -90,9 +90,9 @@ for (s in estaciones) {
                          savePredictions = "final", verboseIter = TRUE)
     
     set.seed(123)
-    modelo_svr <- train(PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
-                          SO2SMASS_dia + SO4SMASS_dia + SSSMASS_dia + blh_mean + sp_mean +
-                          d2m_mean + v10_mean + u10_mean + tp_mean + dayWeek,
+    modelo_svr <- train(PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + #
+                          SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean +
+                          d2m_mean  +t2m_mean +v10_mean + u10_mean + tp_mean + DEM+ dayWeek,
                         data = train_s,
                         method = "svmRadial",
                         trControl = ctrl,
@@ -109,7 +109,7 @@ for (s in estaciones) {
     print(resultado)
     
   } else {
-    cat("No hay suficientes datos para entrenar en", s, "\n")
+    cat("No hay suficientes datos para entrenar en", s, "/n")
   }
 }
 
@@ -150,7 +150,7 @@ ggplot(df_resultados, aes(x = season, y = R2)) +
 ##############################################################################
 ### ----- ET   -----
 # --- Parámetros iniciales
-estacion <- "SP"
+estacion <- "MD"
 modelo <- "1"
 
 # --- Cargar datos
@@ -182,7 +182,7 @@ resultados_et_por_estacion <- list()
 estaciones <- c("Primavera", "Verano", "Otoño", "Invierno")
 
 for (s in estaciones) {
-  cat("\n--- Entrenando ET para:", s, "---\n")
+  cat("/n--- Entrenando ET para:", s, "---/n")
   
   # Filtrar por estación
   train_s <- subset(train_data, season == s)
@@ -194,9 +194,9 @@ for (s in estaciones) {
     
     set.seed(123)
     modelo_et <- train(
-      PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
-        SO2SMASS_dia + SO4SMASS_dia + SSSMASS_dia + blh_mean + sp_mean +
-        d2m_mean + v10_mean + u10_mean + tp_mean + dayWeek,
+      PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + #
+        SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean +
+        d2m_mean  +t2m_mean +v10_mean + u10_mean + tp_mean + DEM+ dayWeek,
       data = train_s,
       method = "ranger",
       trControl = ctrl,
@@ -216,7 +216,7 @@ for (s in estaciones) {
     print(resultado)
     
   } else {
-    cat("No hay suficientes datos para entrenar en", s, "\n")
+    cat("No hay suficientes datos para entrenar en", s, "/n")
   }
 }
 
@@ -256,7 +256,7 @@ ggplot(df_resultados_et, aes(x = season, y = R2)) +
 ### ----- RF   -----
 # -------------------------------------------------------------------
 # Configuración inicial
-estacion <- "SP"
+estacion <- "MD"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/", estacion, "/modelos/ParticionDataSet/", sep = "")
@@ -285,7 +285,7 @@ resultados_rf_por_estacion <- list()
 estaciones <- c("Primavera", "Verano", "Otoño", "Invierno")
 
 for (s in estaciones) {
-  cat("\n--- Entrenando RF para:", s, "---\n")
+  cat("/n--- Entrenando RF para:", s, "---/n")
   
   train_s <- subset(train_data, season == s)
   test_s  <- subset(test_data, season == s)
@@ -296,9 +296,9 @@ for (s in estaciones) {
                          allowParallel = TRUE)
     
     set.seed(123)
-    modelo_rf <- train(PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
-                         SO2SMASS_dia + SO4SMASS_dia + SSSMASS_dia + blh_mean + sp_mean +
-                         d2m_mean + v10_mean + u10_mean + tp_mean + dayWeek,
+    modelo_rf <- train(PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + #
+                         SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean +
+                         d2m_mean  +t2m_mean +v10_mean + u10_mean + tp_mean + DEM+ dayWeek,
                        data = train_s,
                        method = "rf",
                        trControl = ctrl,
@@ -311,7 +311,7 @@ for (s in estaciones) {
     print(resultado)
     
   } else {
-    cat("No hay suficientes datos para entrenar en", s, "\n")
+    cat("No hay suficientes datos para entrenar en", s, "/n")
   }
 }
 
@@ -352,7 +352,7 @@ ggplot(df_resultados_rf, aes(x = season, y = R2)) +
 library(xgboost)
 library(Matrix)
 # ----------------- Configuración inicial -----------------
-estacion <- "SP"
+estacion <- "MD"
 modelo <- "1"
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/", estacion, "/modelos/ParticionDataSet/", sep = "")
 setwd(dir)
@@ -383,10 +383,10 @@ modelos_xgb_por_estacion <- list()
 # Variables predictoras
 vars <- c("AOD_055", "ndvi", "BCSMASS_dia", "DUSMASS_dia",
           "SO2SMASS_dia", "SO4SMASS_dia", "SSSMASS_dia", "blh_mean",
-          "sp_mean", "d2m_mean", "v10_mean", "u10_mean", "tp_mean", "dayWeek")
+          "sp_mean", "d2m_mean", "t2m_mean","v10_mean", "u10_mean", "tp_mean", "DEM","dayWeek")
 
 for (s in estaciones) {
-  cat("\n--- Entrenando XGB para:", s, "---\n")
+  cat("/n--- Entrenando XGB para:", s, "---/n")
   
   train_s <- subset(train_data, season == s)
   test_s  <- subset(test_data, season == s)
@@ -443,7 +443,7 @@ for (s in estaciones) {
     resultados_xgb_por_estacion[[s]] <- resultado
     print(resultado)
   } else {
-    cat("No hay suficientes datos para entrenar en", s, "\n")
+    cat("No hay suficientes datos para entrenar en", s, "/n")
   }
 }
 
@@ -474,4 +474,41 @@ ggplot(df_resultados_xgb, aes(x = season, y = R2)) +
   labs(subtitle = "Modelo XGB", x = "Estación del año", y = "R²") +
   scale_y_continuous(limits = c(0, 1)) +
   theme_classic()
+
+#####################################
+data <- read.csv("D:/Josefina/Proyectos/Tesis/TOT/resultados/modelos_variables_metricas.csv")
+
+df <- data[data$numModelo == "primavera" | data$numModelo == "verano"
+             | data$numModelo == "otonio" | data$numModelo == "invierno",]
+
+names(data)
+
+library(ggplot2)
+
+# Asegurarte de que las estaciones estén en orden lógico
+df$r2 <- as.numeric(df$r2)  # Por si r2 está como carácter
+df$numModelo <- factor(df$numModelo, levels = c("otonio", "invierno","primavera", "verano"))
+
+ggplot(df, aes(x = numModelo, y = r2, color = modelo, group = modelo)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(
+    x = "",
+    y = expression(R^2),
+    color = "Modelo"
+  ) +
+  scale_y_continuous(limits = c(0.5, 0.9)) +
+  scale_x_discrete(labels = c(
+    "otonio" = "Otoño",
+    "invierno" = "Invierno",
+    "primavera" = "Primavera",
+    "verano" = "Verano"
+  )) +
+  theme_classic() +
+  theme(
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size = 10)
+  )
 

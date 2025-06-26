@@ -6,37 +6,45 @@
 #################################################################################
 
 #funcion para evaluar modelos
-evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25") {
-  # Hacer predicciones
+evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25",tipoModelo,y_test) {
   predicciones <- predict(modelo, newdata = datos_test)
   
-  # Extraer los valores reales de la variable objetivo
-  valores_reales <- datos_test[[variable_real]]
   
-  # Calcular métricas
-  r2 <- cor(predicciones, valores_reales)^2
-  pearson <- cor(valores_reales, predicciones, method = "pearson")
-  rmse <- sqrt(mean((predicciones - valores_reales)^2))
-  bias <- mean(predicciones - valores_reales)
+  if(tipoModelo=="XGB"){
+    valores_reales <- y_test
+  }
+  else{
+    valores_reales <- datos_test[[variable_real]]
+  }
+  # Extraer los valores reales de la variable objetivo
+  
+  df <- data.frame(predicciones=predicciones, valores_reales=valores_reales)
+  df <- df[df$predicciones>0,]
+  # Calcular m?tricas
+  r2 <- cor(df$predicciones, df$valores_reales)^2
+  pearson <- cor(df$valores_reales, df$predicciones, method = "pearson")
+  rmse <- sqrt(mean((df$predicciones - df$valores_reales)^2))
+  bias <- mean(df$predicciones - df$valores_reales)
   
   # Resultados
   resultados <- data.frame(
     R2 = round(r2, 5),
-    Pearson = round(pearson, 2),
-    RMSE = round(rmse, 2),
-    Bias = round(bias, 2),
-    Min_Pred = round(min(predicciones), 2),
-    Max_Pred = round(max(predicciones), 2)
+    Pearson = round(pearson, 3),
+    RMSE = round(rmse, 3),
+    Bias = round(bias, 3),
+    Min_Pred = round(min(df$predicciones), 3),
+    Max_Pred = round(max(df$predicciones), 3)
   )
   
   return(resultados)
 }
+
 ##############################################################################
 ##############################################################################
 ##############################################################################
 
 ################# SVR ESPACIAL
-estacion <- "MD"
+estacion <- "BA"
 modelo <- "1"
 
 test_data <- read.csv(paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/Modelo_",modelo,"/M",modelo,"_test_",estacion,".csv",sep=""))
@@ -72,9 +80,9 @@ train_control_spatial <- trainControl(
 
 # 4. Entrenar el modelo SVR con validación cruzada espacial
 modelo_svr_spatial <- train(
-  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
+  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + #+t2m_mean
     SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean +
-    d2m_mean  +t2m_mean +v10_mean + u10_mean + tp_mean + DEM+ dayWeek,
+    d2m_mean  +v10_mean + u10_mean + tp_mean +  DEM+dayWeek,  
   data = train_data,
   method = "svmRadial",
   trControl = train_control_spatial,
@@ -82,8 +90,18 @@ modelo_svr_spatial <- train(
   tuneLength = 5
 )
 
+09:07
+setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
+getwd()
+
+
+#Guardar modelo
+save(modelo_svr_spatial, file=paste("01-SVR-CV-Esp_M",modelo,"-180625-",estacion,".RData",sep=""))
+
+
 # Metricas globales
-resultados_SVR_cv_Espacial <- evaluar_modelo(modelo_svr_spatial, test_data)
+resultados_SVR_cv_Espacial <- evaluar_modelo(modelo=modelo_svr_spatial, datos_test=test_data, variable_real = "PM25",tipoModelo="ET",y_test=NA)
+
 print(resultados_SVR_cv_Espacial)
 
 #Metricas por estacion
@@ -92,6 +110,17 @@ max_rmse <- max(df_metricas$RMSE)
 min_rmse <- min(df_metricas$RMSE)
 
 df_metricas$rmse_escalado <- (df_metricas$RMSE - min_rmse) / (max_rmse - min_rmse)
+
+df_metricas$estacion <- recode(df_metricas$Resample,
+                               "Resample1" = "EMC I" ,
+                               "Resample2" = "EMCII-LE",
+                               "Resample3" = "EMC II LM-MB",
+                               "Resample4" = "EMC II LM-AER",
+                               "Resample5" = "EMB",
+                               
+                               # Dejá las que no cambian fuera o ponelas igual a sí mismas
+                               .default = df_metricas$Resample
+)
 
 # df_metricas$estacion <- recode(df_metricas$Resample,
 #                                    "Resample01" = "BSQ",
@@ -112,26 +141,26 @@ df_metricas$rmse_escalado <- (df_metricas$RMSE - min_rmse) / (max_rmse - min_rms
 
 
 
-# df_metricas$estacion <- recode(df_metricas$Resample,
-#                                "Resample01" = "Carapicuiba",
-#                                "Resample02" = "Marg.Tiete-Pte Remedios",
-#                                "Resample03" = "Maua",
-#                                "Resample04" = "Pico do Jaragua",
-#                                "Resample05" = "Pinheiros",
-#                                "Resample06" = "Santana",
-#                                "Resample07" = "Santo Amaro",
-#                                "Resample08" = "Tabao da Serra",
-#                                "Resample09" = "Parque D.Pedro II",
-#                                "Resample10" = "Guarulhos-Palco Municipal",
-#                                "Resample11" = "Osasco",
-#                                "Resample12" = "Ciudad Universitaria - USP",
-#                                "Resample13" = "Guarulhos - Pimentas",
-#                                "Resample14" = "Ibirapuera",
-#                                "Resample15" = "Interlagos",
-#                                "Resample16" = "Itaim Paulista",
-#                                # Dejá las que no cambian fuera o ponelas igual a sí mismas
-#                                .default = df_metricas$Resample
-# )
+df_metricas$estacion <- recode(df_metricas$Resample,
+                               "Resample01" = "Carapicuiba",
+                               "Resample02" = "Marg.Tiete-Pte Remedios",
+                               "Resample03" = "Maua",
+                               "Resample04" = "Pico do Jaragua",
+                               "Resample05" = "Pinheiros",
+                               "Resample06" = "Santana",
+                               "Resample07" = "Santo Amaro",
+                               "Resample08" = "Tabao da Serra",
+                               "Resample09" = "Parque D.Pedro II",
+                               "Resample10" = "Guarulhos-Palco Municipal",
+                               "Resample11" = "Osasco",
+                               "Resample12" = "Ciudad Universitaria - USP",
+                               "Resample13" = "Guarulhos - Pimentas",
+                               "Resample14" = "Ibirapuera",
+                               "Resample15" = "Interlagos",
+                               "Resample16" = "Itaim Paulista",
+                               # Dejá las que no cambian fuera o ponelas igual a sí mismas
+                               .default = df_metricas$Resample
+)
 
 df_metricas$estacion <- recode(df_metricas$Resample,
                                "Resample01" = "Estacion Trafico Centro",
@@ -155,6 +184,34 @@ df_metricas$estacion <- recode(df_metricas$Resample,
                                .default = df_metricas$Resample
 )
 
+
+
+df_metricas$estacion <- recode(df_metricas$Resample,
+                               "Resample01" = "MER",
+                               "Resample02" = "SFE",
+                               "Resample03" =  "UAX" ,
+                               "Resample04" = "CCA",
+                               "Resample05" = "AJU",
+                               "Resample06" = "AJM" ,
+                               "Resample07" = "BJU" ,
+                               "Resample08" = "GAM",
+                               "Resample09" =  "INN",
+                               "Resample10" =  "MGH" ,
+                               "Resample11" = "MON" ,
+                               "Resample12" = "PED" ,
+                               "Resample13" = "MPA" ,
+                               "Resample14" = "FAR" ,
+                               "Resample15" = "SAC",
+                               "Resample16" ="CAM" ,
+                               "Resample17" ="SAG",
+                               "Resample18" =  "TLA",
+                               "Resample19" =  "XAL" ,
+                               "Resample20" ="NEZ",
+                               "Resample21" = "UIZ" ,
+                               "Resample22" ="HGM",
+                               # Dejá las que no cambian fuera o ponelas igual a sí mismas
+                               .default = df_metricas$Resample
+)
 # Ordenar las estaciones por R² de mayor a menor
 df_metricas <- df_metricas %>%
   arrange(desc(Rsquared)) %>%
@@ -200,7 +257,7 @@ rmse
 library(caret)
 library(ranger)
 ################# ET ESPACIAL
-estacion <- "MD"
+estacion <- "BA"
 modelo <- "1"
 
 test_data <- read.csv(paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/Modelo_",modelo,"/M",modelo,"_test_",estacion,".csv",sep=""))
@@ -236,9 +293,9 @@ train_control_spatial <- trainControl(
 
 # 4. Entrenar el modelo Extra Trees (ranger con splitrule = "extratrees")
 modelo_et_spatial <- train(
-  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
+  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + # +t2m_mean 
     SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean +
-    d2m_mean  +t2m_mean +v10_mean + u10_mean + tp_mean + DEM+ dayWeek,
+    d2m_mean  +v10_mean + u10_mean + tp_mean +  DEM+dayWeek,
   data = train_data,
   method = "ranger",
   trControl = train_control_spatial,
@@ -249,15 +306,19 @@ modelo_et_spatial <- train(
   ),
   importance = 'impurity'
 )
+
+08:50-
 getwd()
 setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
 getwd()
 
 
 #Guardar modelo
-save(modelo_et_spatial, file=paste("01-ET-CV-Esp_M",modelo,"-260525-",estacion,".RData",sep=""))
+save(modelo_et_spatial, file=paste("01-ET-CV-Esp_M",modelo,"-180625-",estacion,".RData",sep=""))
+
 # Metricas globales
-resultados_ET_cv_Espacial <- evaluar_modelo(modelo_et_spatial, test_data)
+resultados_ET_cv_Espacial <- evaluar_modelo(modelo=modelo_et_spatial, datos_test=test_data, variable_real = "PM25",tipoModelo="ET",y_test=NA)
+
 print(resultados_ET_cv_Espacial)
 
 df_metricas<- data.frame(modelo_et_spatial[["resample"]])
@@ -265,23 +326,33 @@ max_rmse <- max(df_metricas$RMSE)
 min_rmse <- min(df_metricas$RMSE)
 
 df_metricas$rmse_escalado <- (df_metricas$RMSE - min_rmse) / (max_rmse - min_rmse)
+df_metricas$estacion <- recode(df_metricas$Resample,
+                               "Resample1" = "EMC I" ,
+                               "Resample2" = "EMCII-LE",
+                               "Resample3" = "EMC II LM-MB",
+                               "Resample4" = "EMC II LM-AER",
+                               "Resample5" = "EMB",
+                               
+                               # Dejá las que no cambian fuera o ponelas igual a sí mismas
+                               .default = df_metricas$Resample
+)
 #--CH
-# df_metricas$estacion <- recode(df_metricas$Resample,
-#                                    "Resample01" = "BSQ",
-#                                    "Resample02" = "IND",
-#                                    "Resample03" = "CERR-I",
-#                                    "Resample04" = "CER-II",
-#                                    "Resample05" = "CNA",
-#                                    "Resample06" = "FLD",
-#                                    "Resample07" = "CDE",
-#                                    "Resample08" = "PDH",
-#                                    "Resample09" = "PTA",
-#                                    "Resample10" = "QUII",
-#                                    "Resample11" = "OHG",
-#                                    "Resample12" = "QUI",
-#                                    # Dejá las que no cambian fuera o ponelas igual a sí mismas
-#                                    .default = df_metricas$Resample
-# )
+df_metricas$estacion <- recode(df_metricas$Resample,
+                                   "Resample01" = "BSQ",
+                                   "Resample02" = "IND",
+                                   "Resample03" = "CERR-I",
+                                   "Resample04" = "CER-II",
+                                   "Resample05" = "CNA",
+                                   "Resample06" = "FLD",
+                                   "Resample07" = "CDE",
+                                   "Resample08" = "PDH",
+                                   "Resample09" = "PTA",
+                                   "Resample10" = "QUII",
+                                   "Resample11" = "OHG",
+                                   "Resample12" = "QUI",
+                                   # Dejá las que no cambian fuera o ponelas igual a sí mismas
+                                   .default = df_metricas$Resample
+)
 
 
 #--SP
@@ -346,7 +417,7 @@ rmse
 ##############################################################################
 
 ################# RF  ESPACIAL
-estacion <- "SP"
+estacion <- "BA"
 modelo <- "1"
 
 test_data <- read.csv(paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/Modelo_",modelo,"/M",modelo,"_test_",estacion,".csv",sep=""))
@@ -378,24 +449,30 @@ train_control_spatial <- trainControl(
   verboseIter = TRUE,
   allowParallel = TRUE
 )
-
 # Modelo
 rf_spatial_model <- train(
-  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + 
-    SO2SMASS_dia + SO4SMASS_dia + SSSMASS_dia + blh_mean + sp_mean +
-    d2m_mean + v10_mean + u10_mean + tp_mean + dayWeek,
+  PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia + #+t2m_mean 
+    SO2SMASS_dia + SO4SMASS_dia +SSSMASS_dia + blh_mean + sp_mean +
+    d2m_mean   +v10_mean + u10_mean + tp_mean +  DEM+dayWeek,
   data = train_data,
   method = "rf",
   trControl = train_control_spatial,
   tuneGrid = data.frame(mtry = 5),  # <<---- fijás mtry aquí
   importance = TRUE
 )
+10:03-11:35
+11:38
 
-save(rf_spatial_model, file=paste("01-RF-CV-Esp_M",modelo,"-200525-",estacion,".RData",sep=""))
+setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
+getwd()
+save(rf_spatial_model, file=paste("01-RF-CV-Esp_M",modelo,"-180625-",estacion,".RData",sep=""))
 
 
+# Metricas globales
+resultados_RF_cv_Espacial <- evaluar_modelo(modelo=rf_spatial_model, datos_test=test_data, variable_real = "PM25",tipoModelo="RF",y_test=NA)
+print(resultados_RF_cv_Espacial)
 
-load(paste("11-RF-CV-Esp_M",modelo,"-100425-",estacion,".RData",sep=""))
+# load(paste("11-RF-CV-Esp_M",modelo,"-100425-",estacion,".RData",sep=""))
 
 
 df_metricas<- data.frame(rf_spatial_model[["resample"]])
@@ -404,22 +481,33 @@ min_rmse <- min(df_metricas$RMSE)
 
 df_metricas$rmse_escalado <- (df_metricas$RMSE - min_rmse) / (max_rmse - min_rmse)
 
-# df_metricas$estacion <- recode(df_metricas$Resample,
-#                                    "Resample01" = "BSQ",
-#                                    "Resample02" = "IND",
-#                                    "Resample03" = "CERR-I",
-#                                    "Resample04" = "CER-II",
-#                                    "Resample05" = "CNA",
-#                                    "Resample06" = "FLD",
-#                                    "Resample07" = "CDE",
-#                                    "Resample08" = "PDH",
-#                                    "Resample09" = "PTA",
-#                                    "Resample10" = "QUII",
-#                                    "Resample11" = "OHG",
-#                                    "Resample12" = "QUI",
-#                                    # Dejá las que no cambian fuera o ponelas igual a sí mismas
-#                                    .default = df_metricas$Resample
-# )
+df_metricas$estacion <- recode(df_metricas$Resample,
+                               "Resample1" = "EMC I" ,
+                               "Resample2" = "EMCII-LE",
+                               "Resample3" = "EMC II LM-MB",
+                               "Resample4" = "EMC II LM-AER",
+                               "Resample5" = "EMB",
+                               
+                               # Dejá las que no cambian fuera o ponelas igual a sí mismas
+                               .default = df_metricas$Resample
+)
+
+df_metricas$estacion <- recode(df_metricas$Resample,
+                                   "Resample01" = "BSQ",
+                                   "Resample02" = "IND",
+                                   "Resample03" = "CERR-I",
+                                   "Resample04" = "CER-II",
+                                   "Resample05" = "CNA",
+                                   "Resample06" = "FLD",
+                                   "Resample07" = "CDE",
+                                   "Resample08" = "PDH",
+                                   "Resample09" = "PTA",
+                                   "Resample10" = "QUII",
+                                   "Resample11" = "OHG",
+                                   "Resample12" = "QUI",
+                                   # Dejá las que no cambian fuera o ponelas igual a sí mismas
+                                   .default = df_metricas$Resample
+)
 
 
 
@@ -453,6 +541,8 @@ library(dplyr)
 df_metricas <- df_metricas %>%
   arrange(desc(Rsquared)) %>%
   mutate(estacion = factor(estacion, levels = estacion))  # fija el orden en el gráfico
+
+View(df_metricas)
 #c("R²" = "blue", "RMSE" = "red")) +
 # Crear el histograma
 r2<-ggplot(df_metricas, aes(x = estacion, y = Rsquared)) +
@@ -460,16 +550,30 @@ r2<-ggplot(df_metricas, aes(x = estacion, y = Rsquared)) +
   scale_y_continuous(limits = c(0, 1)) +
   labs(x = "RF Spatial", y = "R² ") +
   theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 8),  # Agrandar los números de los ticks
+    legend.title = element_text(family = "Roboto", size = 6, face = 2),
+    legend.position = "top",  # Elimina la leyenda
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) 
 
 
-
+r2
 rmse<-ggplot(df_metricas, aes(x = estacion, y = RMSE)) +
   geom_bar(stat = "identity", color = "#b30000", fill = "#e34a33") +
-  scale_y_continuous(limits = c(0, 11.5)) +
+  scale_y_continuous(limits = c(0, 14), breaks = seq(0, 14, 2)) +
   labs(x = "RF Spatial", y = "RMSE ") +
   theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 8),  # Agrandar los números de los ticks
+    legend.title = element_text(family = "Roboto", size = 6, face = 2),
+    legend.position = "top",  # Elimina la leyenda
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) 
+
+rmse
 ggsave(paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/plots/R2-RF-espacial.png",sep=""),r2,
        width = 10,
        height = 8,
@@ -489,7 +593,7 @@ library(Metrics)       # rmse, mae, etc.
 library(dplyr)
 
 
-estacion <- "SP"
+estacion <- "BA"
 modelo <- "1"
 #Data modelo 1
 test_data <- read.csv(paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/Modelo_",modelo,"/M",modelo,"_test_",estacion,".csv",sep=""))
@@ -500,12 +604,13 @@ stations <- unique(train_data$estacion)
 
 # Fórmula y selección de columnas
 vars <- c("AOD_055",
-          "ndvi", "BCSMASS_dia","DUSMASS_dia", #"DUSMASS25_dia"
+          "ndvi", "BCSMASS_dia","DUSMASS_dia", #"DUSMASS25_dia" "t2m_mean",
           "SO2SMASS_dia", "SO4SMASS_dia", "SSSMASS_dia", "blh_mean", 
-          "sp_mean", "d2m_mean", "v10_mean",
-          "u10_mean", "tp_mean",
+          "d2m_mean","v10_mean", "sp_mean", 
+          "u10_mean", "tp_mean", "DEM",
           "dayWeek")
 target <- "PM25"
+
 
 predicciones <- data.frame()
 pred_entrenamiento <- data.frame()
@@ -528,7 +633,9 @@ for (test_station in stations) {
     max_depth = 6,
     subsample = 0.8,
     colsample_bytree = 0.8,
-    verbose = 0
+    #nfold = 10,
+    #verbose = 0
+    verbose = TRUE 
   )
   
   # Predicciones test
@@ -564,6 +671,9 @@ cat("min pred test:", round(min(predicciones$pred), 3), "\n")
 cat("max pred test:", round(max(predicciones$pred), 3), "\n")
 
 
+setwd(paste("D:/Josefina/Proyectos/Tesis/",estacion,"/modelos/",sep=""))
+getwd()
+save(xgb_model, file=paste("01-XGB-CV-Esp_M",modelo,"-180625-",estacion,".RData",sep=""))
 
 ###############################
 ###############################
@@ -588,7 +698,7 @@ for (test_station in stations) {
     max_depth = 6,
     subsample = 0.8,
     colsample_bytree = 0.8,
-    verbose = 0
+    verbose = TRUE 
   )
   
   preds_test <- predict(xgb_model, dtest)
@@ -622,33 +732,77 @@ for (test_station in stations) {
 }
 
 # Orden personalizado de estaciones
+nombres_cortos <- c("EMC I" ,"EMCII-LE","EMC II LM-MB",
+                 "EMC II LM-AER","EMB")
+orden_estaciones <- c("EMC I" ,"EMCII-LE","EMC II LM-MB",
+                    "EMC II LM-AER","EMB")
 orden_estaciones <- c("CNA", "QUII", "PDH", "BSQ", "CER-II", "CERR-I", "OHG", "QUI", "IND", "FLD", "PTA", "CDE")
+nombres_cortos <- c("CNA", "QUII", "PDH", "BSQ", "CER-II", "CERR-I", "OHG", "QUI", "IND", "FLD", "PTA", "CDE")
+
 orden_estaciones <- c("Carapicuiba", "Marg.Tiete-Pte Remedios", "Maua", "Pico do Jaragua",
                       "Pinheiros", "Santana", "Santo Amaro", "Tabao da Serra","Parque D.Pedro II",
                       "Parque D.Pedro II","Guarulhos-Palco Municipal","Osasco","Ciudad Universitaria - USP",
                       "Guarulhos - Pimentas","Ibirapuera","Interlagos","Itaim Paulista")
+orden_estaciones <- c("Estacion Trafico Centro","Itagui - Casa de Justicia Itagui","Itagui - I.E. Concejo Municipal de Itagui",
+                      "Caldas - E U Joaquin Aristizabal","La Estrella - Hospital","Medellin Altavista - I.E. Pedro Octavio Amado",
+                      "Medellin Villahermosa - Planta de produccion de agua potable EPM","Barbosa - Torre Social",
+                      "Copacabana - Ciudadela Educativa La Vida","Medellin, Belen - I.E Pedro Justo Berrio","Medellin, El Poblado - I.E INEM sede Santa Catalina",
+                      "Medellin, San Cristobal - Parque Biblioteca Fernando Botero","Medellin, Aranjuez - I.E Ciro Mendia",
+                      "Bello - I.E. Fernando Velez","Envigado - E.S.E. Santa Gertrudis","Sabaneta - I.E. Rafael J. Mejia","Medellin - Santa Elena" )
+# Paso 1: vector con nombres cortos
+nombres_cortos <- c("Estacion Trafico Centro", "Casa de Justicia Itagui", "Concejo Municipal de Itagui", 
+                    "Caldas Joaquin Aristizabal", "La Estrella", "Medellin Altavista",
+                    "Medellin Villahermosa",  "Barbosa - Torre Social", "Copacabana", 
+                    "Medellin - Belen", "Medellin - El Poblado", "Medellin - San Cristobal", 
+                    "Medellin - Aranjuez", "Bello - Fernando Velez", "Envigado - Santa Gertrudis",
+                    "Sabaneta - Rafael J. Mejia", "Medellin - Santa Elena")
 
-resultados_por_estacion <- resultados_por_estacion2
+# Paso 2: tabla de equivalencias
+tabla_nombres <- data.frame(
+  estacion = orden_estaciones,
+  estacion_corta = nombres_cortos
+)
+
+# Paso 3: unir nombres cortos
+resultados_por_estacion <- resultados_por_estacion %>%
+  left_join(tabla_nombres, by = "estacion")
 # Aplicás ese orden al factor
 resultados_por_estacion <- resultados_por_estacion %>%
   mutate(estacion = factor(estacion, levels = orden_estaciones))
 # fija el orden en el gráfico
 
+#r2<-ggplot(resultados_por_estacion, aes(x = estacion_corta, y = R2)) +
 r2<-ggplot(resultados_por_estacion, aes(x = estacion, y = R2)) +
   geom_bar(stat = "identity", color = "#0570b0", fill = "#74a9cf") +
   scale_y_continuous(limits = c(0, 1)) +
   labs(x = "XGB Spatial", y = "R² ") +
   theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 8),  # Agrandar los números de los ticks
+    legend.title = element_text(family = "Roboto", size = 6, face = 2),
+    legend.position = "top",  # Elimina la leyenda
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) 
 
 
-
-rmse<-ggplot(resultados_por_estacion, aes(x = estacion, y = RMSE)) +
-  geom_bar(stat = "identity", color = "#b30000", fill = "#e34a33") +
-  scale_y_continuous(limits = c(0, 11.5)) +
+r2
+#rmse<-ggplot(resultados_por_estacion, aes(x = estacion_corta, y = RMSE)) +
+rmse<-ggplot(resultados_por_estacion, aes(x = estacion, y = RMSE)) + 
+ geom_bar(stat = "identity", color = "#b30000", fill = "#e34a33") +
+  scale_y_continuous(limits = c(0, 14), breaks = seq(0, 14, 2)) +
   labs(x = "XGB Spatial", y = "RMSE ") +
   theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 8),  # Agrandar los números de los ticks
+    legend.title = element_text(family = "Roboto", size = 6, face = 2),
+    legend.position = "top",  # Elimina la leyenda
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) 
+
+
+rmse
 
 ggsave(paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/plots/RMSE-XGB-espacial.png",sep=""),rmse,
        width = 10,

@@ -7,7 +7,7 @@
 # biblioteca para vif
 
 #  --        01. Preparaci?n de los datos: selecci?n de variables
-estacion <- "MD"
+estacion <- "MX"
 data_com <- read.csv(paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/proceed/merge_tot/",estacion,"_merge_comp.csv",sep=""))
 names(data_com)
 #Poner en formato la fecha
@@ -66,12 +66,13 @@ evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25",tipoModelo
     }
   # Extraer los valores reales de la variable objetivo
   
-  
+  df <- data.frame(predicciones=predicciones, valores_reales=valores_reales)
+  df <- df[df$predicciones>0,]
   # Calcular m?tricas
-  r2 <- cor(predicciones, valores_reales)^2
-  pearson <- cor(valores_reales, predicciones, method = "pearson")
-  rmse <- sqrt(mean((predicciones - valores_reales)^2))
-  bias <- mean(predicciones - valores_reales)
+  r2 <- cor(df$predicciones, df$valores_reales)^2
+  pearson <- cor(df$valores_reales, df$predicciones, method = "pearson")
+  rmse <- sqrt(mean((df$predicciones - df$valores_reales)^2))
+  bias <- mean(df$predicciones - df$valores_reales)
   
   # Resultados
   resultados <- data.frame(
@@ -79,8 +80,8 @@ evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25",tipoModelo
     Pearson = round(pearson, 3),
     RMSE = round(rmse, 3),
     Bias = round(bias, 3),
-    Min_Pred = round(min(predicciones), 3),
-    Max_Pred = round(max(predicciones), 3)
+    Min_Pred = round(min(df$predicciones), 3),
+    Max_Pred = round(max(df$predicciones), 3)
   )
   
   return(resultados)
@@ -89,7 +90,7 @@ evaluar_modelo <- function(modelo, datos_test, variable_real = "PM25",tipoModelo
 # Modelo
 ### ----- RLS  -----
 #########################################################
-estacion <-"MD"
+estacion <-"MX"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/",sep="")
@@ -107,7 +108,7 @@ print(resultados_RLS)
 #########################################################################################
 #########################################################################################
 ### ----- RLM  -----
-estacion <-"MD"
+estacion <-"MX"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/",sep="")
@@ -122,14 +123,14 @@ lm_model <- lm(PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia +
                data = train_data)
 
 
-resultados_RLM <- evaluar_modelo(modelo=lm_model, datos_test=test_data, variable_real = "PM25",tipoModelo="RLS",y_test=NA)
+resultados_RLM2 <- evaluar_modelo(modelo=lm_model, datos_test=test_data, variable_real = "PM25",tipoModelo="RLS",y_test=NA)
 
 print(resultados_RLM)
 #########################################################################################
 #########################################################################################
 ### ----- SVR  -----
 library(e1071)  # para usar svm
-estacion <-"MD"
+estacion <-"MX"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/",sep="")
@@ -190,7 +191,7 @@ print(resultados_ET)
 #########################################################################################
 #########################################################################################
 ### ----- RF   -----
-estacion <-"MD"
+estacion <-"MX"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/",sep="")
@@ -208,7 +209,7 @@ modelo_RF <- train(PM25 ~ AOD_055 + ndvi + BCSMASS_dia + DUSMASS_dia +
                    importance = TRUE)
 
 
-
+10:20-10:28
 resultados_RF <- evaluar_modelo(modelo=modelo_RF, datos_test=test_data, variable_real = "PM25",tipoModelo="RF",y_test=NA)
 
 print(resultados_RF)
@@ -219,7 +220,7 @@ print(resultados_RF)
 library(xgboost)
 library(Matrix)
 ### ----- XGB   -----
-estacion <-"MD"
+estacion <-"MX"
 modelo <- "1"
 
 dir <- paste("D:/Josefina/Proyectos/ProyectoChile/",estacion,"/modelos/ParticionDataSet/",sep="")
@@ -268,6 +269,7 @@ xgb_model <- xgb.train(
   nrounds = 2000#,      #2000    # N?mero de rondas de boosting
   #early_stopping_rounds = 10  # Detener el entrenamiento si no mejora
 )
+
 
 
 dtest <- xgb.DMatrix(data = as.matrix(X_test), label = y_test)

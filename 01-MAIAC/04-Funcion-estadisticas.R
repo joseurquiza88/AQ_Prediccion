@@ -191,12 +191,13 @@ funcion_estadisticas_carpeta <- function(dire){
   }
   return(df)
 }
-
-dire_1km <- "D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/Latam_C61/dia/1km/"
-dire_3km <- "D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/Latam_C61/dia/3km/"
-dire_5km <- "D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/Latam_C61/dia/5km/"
-dire_15km <- "D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/Latam_C61/dia/15km/"
-dire_25km <- "D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/Latam_C61/dia/25km/"
+# 
+region <- "USA"
+dire_1km <- paste("D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/",region,"_C61/dia/1km/",sep="")
+dire_3km <- paste("D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/",region,"_C61/dia/3km/",sep="")
+dire_5km <- paste("D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/",region,"_C61/dia/5km/",sep="")
+dire_15km <- paste("D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/",region,"_C61/dia/15km/",sep="")
+dire_25km <- paste("D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/",region,"_C61/dia/25km/",sep="")
 
 ###Corremos funcion por buffer
 df_1km <- funcion_estadisticas_carpeta(dire_1km)
@@ -212,7 +213,7 @@ df_tot$buffer <- substr(df_tot$name,6,9)
 df_tot$temp <-substr(df_tot$name,17,18)
 getwd()
 
-write.csv(df_tot,"D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/Latam_C61/estadisticas_Latam-MAIAC_C61-AER-V03-dia.csv")
+write.csv(df_tot,"D:/Josefina/paper_git/paper_maiac/datasets/V03/processed/merge_AER-MAIAC/USA_C61/estadisticas_USA-MAIAC_C61-AER-V03-dia.csv")
 ########################################
 #Queremos saber cual es el mejor buffer
 # Minimo RMSE, Minimo Bias (abs), Maximo RMSE

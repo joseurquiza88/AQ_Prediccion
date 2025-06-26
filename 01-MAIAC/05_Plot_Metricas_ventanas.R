@@ -21,10 +21,12 @@ metrica_interes <- "r2"
 
 metricas_subset <- metricas[metricas$metrica == metrica_interes,]
 metricas_subset$buffer <- factor(metricas_subset$espacial, levels = c(1, 3, 5, 15, 25))
+metricas_subset$buffer <- factor(metricas_subset$temporal, levels = c(30, 60, 90, 120))
+
 metricas_subset$ciudad <- factor(metricas_subset$estacion)
 metricas_subset$ciudad <- factor(metricas_subset$ciudad, 
                                  levels = c("SP", "ST", "BA", "MD", "LP", "MX"))
-
+COLOR VIOLETA #756bb1
 # Gráfico de barras agrupadas
 r2_agrupadas<-ggplot(metricas_subset, aes(x = ciudad, y = valor, fill = buffer)) +
   geom_bar(stat = "identity", position = position_dodge(width = 0.8)) +
@@ -64,6 +66,8 @@ metrica_interes <-"rmse"
 
 metricas_subset <- metricas[metricas$metrica == metrica_interes,]
 metricas_subset$buffer <- factor(metricas_subset$espacial, levels = c(1, 3, 5, 15, 25))
+metricas_subset$buffer <- factor(metricas_subset$temporal, levels = c(30,60,90,120))
+
 metricas_subset$ciudad <- factor(metricas_subset$estacion)
 metricas_subset$ciudad <- factor(metricas_subset$ciudad, 
                                  levels = c("SP", "ST", "BA", "MD", "LP", "MX"))
@@ -111,6 +115,8 @@ metrica_interes <-"bias"
 
 metricas_subset <- metricas[metricas$metrica == metrica_interes,]
 metricas_subset$buffer <- factor(metricas_subset$espacial, levels = c(1, 3, 5, 15, 25))
+metricas_subset$buffer <- factor(metricas_subset$temporal, levels = c(30,60,90,120))
+
 metricas_subset$ciudad <- factor(metricas_subset$estacion)
 metricas_subset$ciudad <- factor(metricas_subset$ciudad, 
                                  levels = c("SP", "ST", "BA", "MD", "LP", "MX"))
@@ -158,6 +164,8 @@ metrica_interes <-"reuMeanAOD"
 
 metricas_subset <- metricas[metricas$metrica == metrica_interes,]
 metricas_subset$buffer <- factor(metricas_subset$espacial, levels = c(1, 3, 5, 15, 25))
+metricas_subset$buffer <- factor(metricas_subset$temporal, levels = c(30,60,90,120))
+
 metricas_subset$ciudad <- factor(metricas_subset$estacion)
 metricas_subset$ciudad <- factor(metricas_subset$ciudad, 
                                  levels = c("SP", "ST", "BA", "MD", "LP", "MX"))
@@ -185,7 +193,7 @@ reu_agrupado<- ggplot(metricas_subset, aes(x = ciudad, y = valor, fill = buffer)
     legend.position = "top"  # Elimina la leyenda
   ) 
 
-
+reu_agrupado
 ggsave("D:/Josefina/Proyectos/Tesis/plot/01-MAIAC_Performance/MAIAC-C61-AER-Latam-REU2.png",reu_agrupado,
        width = 14,
        height = 8,
